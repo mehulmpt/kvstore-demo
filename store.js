@@ -6,6 +6,11 @@ class KVStore {
 	_store = path.join(__dirname, 'store-info')
 	_init = false
 	storeSize = 0
+	_MAX_STORE_SIZE = this.GB(1)
+
+	KB(num) {
+		return num << 10
+	}
 
 	GB(num) {
 		return num << 30
@@ -15,10 +20,10 @@ class KVStore {
 		return path.join(this._store, key)
 	}
 
-	async init(path) {
-		if (typeof path === 'string' && path.length > 0) {
+	async init(storePath) {
+		if (typeof storePath === 'string' && storePath.length > 0) {
 			// set the store path
-			this._store = path.join(__dirname, path)
+			this._store = path.join(__dirname, storePath)
 		}
 		// add check for folder here
 		try {
@@ -79,7 +84,11 @@ class KVStore {
 			expiry
 		})
 
-		if (payload.length + this.storeSize > this.GB(1)) {
+		if (payload.length > this.KB(16)) {
+			throw new Error('Payload can be at max 16KB')
+		}
+
+		if (payload.length + this.storeSize > this._MAX_STORE_SIZE) {
 			throw new Error('Store can be only 1GB max')
 		}
 
@@ -115,7 +124,6 @@ class KVStore {
 			}
 			return data._raw
 		} catch (error) {
-			console.log(error)
 			throw new Error(`Key "${key}" does not exist`)
 		}
 	}
@@ -143,13 +151,10 @@ class KVStore {
 			throw new Error(`Key "${key}" does not exist`)
 		}
 	}
+
+	_cleanup() {
+		require('child_process').execSync(`rm -rf "${this._store}"`)
+	}
 }
 
-;(async () => {
-	const store = new KVStore()
-	await store.init()
-	await store.create('test', { t: 1 })
-	await store.create('test2', { t: 2 }, 10)
-	// console.log(await store.read('test'))
-	// console.log(await store.del('test'))
-})()
+module.exports = KVStore
